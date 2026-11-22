@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A Tiny Living Village – Autonomous Social Simulation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Top HUD Navigation -->
+    <header id="top-bar">
+      <div class="logo-group">
+        <span class="village-icon">🏡</span>
+        <div>
+          <h1 class="village-title">A Tiny Living Village</h1>
+          <p class="village-subtitle">Autonomous Social Simulation</p>
+        </div>
+      </div>
+
+      <!-- Time & Day Display -->
+      <div class="hud-widget time-widget">
+        <div class="time-phase-icon" id="phase-icon">☀️</div>
+        <div class="time-info">
+          <div class="time-main">
+            <span id="clock-display">08:00 AM</span>
+            <span class="phase-badge" id="phase-badge">Morning</span>
+          </div>
+          <div class="day-main">Day <span id="day-display">1</span></div>
+        </div>
+      </div>
+
+      <!-- Simulation Controls -->
+      <div class="hud-widget controls-widget">
+        <button id="btn-pause" class="ctrl-btn" title="Pause / Resume (Space)">
+          <span id="pause-icon">⏸️</span> <span id="pause-text">Pause</span>
+        </button>
+        <div class="speed-group">
+          <button class="speed-btn active" data-speed="1">1×</button>
+          <button class="speed-btn" data-speed="2">2×</button>
+          <button class="speed-btn" data-speed="4">4×</button>
+          <button class="speed-btn" data-speed="8">8×</button>
+        </div>
+      </div>
+
+      <!-- Camera & World Stats -->
+      <div class="hud-widget meta-widget">
+        <div class="stat-item" title="Active Villagers">
+          <span class="stat-icon">👥</span>
+          <span class="stat-val" id="stat-villagers">12</span>
+        </div>
+        <div class="stat-item" title="Events Recorded">
+          <span class="stat-icon">📜</span>
+          <span class="stat-val" id="stat-events">0</span>
+        </div>
+        <div class="stat-item" title="Active Rumors">
+          <span class="stat-icon">🗣️</span>
+          <span class="stat-val" id="stat-rumors">0</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="hud-widget action-buttons">
+        <button id="btn-toggle-feed" class="action-btn" title="Toggle Live Event Feed">
+          <span>📰</span> Feed
+        </button>
+        <button id="btn-center-cam" class="action-btn" title="Recenter Camera (Home)">
+          <span>🎯</span> Center
+        </button>
+        <button id="btn-save" class="action-btn" title="Save Simulation State">
+          <span>💾</span> Save
+        </button>
+        <button id="btn-reset" class="action-btn danger" title="Reset Village">
+          <span>🔄</span> Reset
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Viewport Area -->
+    <main id="viewport-container">
+      <canvas id="village-canvas"></canvas>
+
+      <!-- Canvas Overlay Controls (Zoom, Help, Legend) -->
+      <div id="canvas-floating-controls">
+        <button id="btn-zoom-in" class="floating-btn" title="Zoom In (+)">➕</button>
+        <button id="btn-zoom-out" class="floating-btn" title="Zoom Out (-)">➖</button>
+        <button id="btn-toggle-names" class="floating-btn active" title="Toggle Villager Nameplates">🏷️</button>
+        <button id="btn-toggle-emotes" class="floating-btn active" title="Toggle Speech Bubbles">💬</button>
+      </div>
+
+      <!-- Floating Tooltip for Villagers/Buildings -->
+      <div id="hover-tooltip" class="hidden"></div>
+
+      <!-- Live Event Feed Drawer -->
+      <aside id="feed-panel" class="open">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <span class="panel-icon">📰</span>
+            <h3>Village Chronicles</h3>
+          </div>
+          <div class="panel-controls">
+            <button id="btn-clear-feed" class="small-text-btn" title="Clear log">Clear</button>
+            <button id="btn-close-feed" class="icon-close-btn" title="Close feed">✕</button>
+          </div>
+        </div>
+
+        <div class="feed-filter-bar">
+          <button class="filter-chip active" data-filter="all">All</button>
+          <button class="filter-chip" data-filter="social">Social</button>
+          <button class="filter-chip" data-filter="economy">Trade</button>
+          <button class="filter-chip" data-filter="rumors">Rumors</button>
+          <button class="filter-chip" data-filter="conflict">Conflicts</button>
+        </div>
+
+        <div id="feed-list" class="feed-content">
+          <!-- Dynamically populated events -->
+        </div>
+      </aside>
+    </main>
+
+    <!-- Bottom Villager Quick-Roster Bar -->
+    <footer id="roster-bar">
+      <div class="roster-label">Villagers:</div>
+      <div id="roster-scroll-container">
+        <!-- 12 Villager mini cards populated dynamically -->
+      </div>
+    </footer>
+
+    <!-- Comprehensive Villager Inspector Modal / Slide-out -->
+    <div id="inspector-modal" class="modal-backdrop hidden">
+      <div class="inspector-card">
+        <!-- Inspector Header -->
+        <div class="inspector-header">
+          <div class="villager-hero">
+            <canvas id="inspector-avatar-canvas" width="64" height="64"></canvas>
+            <div class="villager-hero-text">
+              <div class="name-row">
+                <h2 id="insp-name">Villager Name</h2>
+                <span id="insp-personality" class="badge personality-badge">Friendly</span>
+                <span id="insp-mood-badge" class="badge mood-badge">Happy</span>
+              </div>
+              <p class="villager-meta-line">
+                <span id="insp-age">Age 28</span> • 
+                <span id="insp-occupation" class="highlight">Baker</span> • 
+                <span id="insp-home">Bakery Loft</span>
+              </p>
+              <p id="insp-current-task" class="current-task-line">Baking fresh loaves of sourdough bread.</p>
+            </div>
+          </div>
+          <button id="btn-close-inspector" class="inspector-close-btn">✕</button>
+        </div>
+
+        <!-- Inspector Tabs Navigation -->
+        <nav class="inspector-tabs">
+          <button class="tab-btn active" data-tab="tab-profile">Profile</button>
+          <button class="tab-btn" data-tab="tab-needs">Needs & Mood</button>
+          <button class="tab-btn" data-tab="tab-relationships">Relationships (<span id="insp-rel-count">11</span>)</button>
+          <button class="tab-btn" data-tab="tab-memories">Memories (<span id="insp-mem-count">0</span>)</button>
+          <button class="tab-btn" data-tab="tab-diary">Personal Diary</button>
+          <button class="tab-btn" data-tab="tab-inventory">Inventory & Wealth</button>
+        </nav>
+
+        <!-- Inspector Tab Panes -->
+        <div class="inspector-body">
+          <!-- 1. Profile Tab -->
+          <div id="tab-profile" class="tab-pane active">
+            <div class="profile-grid">
+              <div class="profile-card bio-box">
+                <h4>Biography & Background</h4>
+                <p id="insp-bio-text">Bio description...</p>
+                <div class="bio-details">
+                  <div class="bio-row"><strong>Daily Schedule:</strong> <span id="insp-schedule-text">06:00 Wake up, 08:00 Work, 18:00 Market, 21:00 Rest</span></div>
+                  <div class="bio-row"><strong>Personality Traits:</strong> <span id="insp-traits-text">Kind, generous with goods, loves peaceful conversations.</span></div>
+                  <div class="bio-row"><strong>Primary Location:</strong> <span id="insp-workplace-text">The Village Bakery</span></div>
+                </div>
+              </div>
+
+              <div class="profile-card thought-box">
+                <h4>Internal Monologue & Thoughts</h4>
+                <blockquote id="insp-thought-bubble">
+                  "The morning air smells of blooming jasmine. I should bake an extra loaf for Tomas today."
+                </blockquote>
+                <div class="recent-dialogue-box">
+                  <h5>Recent Conversations</h5>
+                  <div id="insp-recent-dialogue-list" class="dialogue-list">
+                    <p class="empty-state">No conversations yet today.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Needs Tab -->
+          <div id="tab-needs" class="tab-pane">
+            <div class="needs-dashboard">
+              <div class="need-meter-card">
+                <div class="need-label-row">
+                  <span>🍞 Hunger</span>
+                  <span id="meter-val-hunger" class="need-value">85%</span>
+                </div>
+                <div class="meter-bar-track">
+                  <div id="meter-fill-hunger" class="meter-bar-fill hunger-fill" style="width: 85%;"></div>
+                </div>
+                <p class="need-hint" id="hint-hunger">Well fed and content.</p>
+              </div>
+
+              <div class="need-meter-card">
+                <div class="need-label-row">
+                  <span>⚡ Energy</span>
+                  <span id="meter-val-energy" class="need-value">90%</span>
+                </div>
+                <div class="meter-bar-track">
+                  <div id="meter-fill-energy" class="meter-bar-fill energy-fill" style="width: 90%;"></div>
+                </div>
+                <p class="need-hint" id="hint-energy">Feeling fully rested and ready to work.</p>
+              </div>
+
+              <div class="need-meter-card">
+                <div class="need-label-row">
+                  <span>😊 Happiness</span>
+                  <span id="meter-val-happiness" class="need-value">80%</span>
+                </div>
+                <div class="meter-bar-track">
+                  <div id="meter-fill-happiness" class="meter-bar-fill happiness-fill" style="width: 80%;"></div>
+                </div>
+                <p class="need-hint" id="hint-happiness">Cheerfully going about their daily routine.</p>
+              </div>
+
+              <div class="need-meter-card">
+                <div class="need-label-row">
+                  <span>💬 Social Need</span>
+                  <span id="meter-val-social" class="need-value">70%</span>
+                </div>
+                <div class="meter-bar-track">
+                  <div id="meter-fill-social" class="meter-bar-fill social-fill" style="width: 70%;"></div>
+                </div>
+                <p class="need-hint" id="hint-social">Enjoys catching up with fellow villagers.</p>
+              </div>
+            </div>
+
+            <div class="emotional-state-card">
+              <h4>Current Emotional Spectrum</h4>
+              <div class="emotion-tags" id="insp-emotion-tags">
+                <span class="emotion-chip">Content</span>
+                <span class="emotion-chip">Hopeful</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Relationships Tab -->
+          <div id="tab-relationships" class="tab-pane">
+            <div class="relationship-intro">
+              <p>Individual perspective and numerical affinity (-100 Enemy to +100 Best Friend) toward each villager:</p>
+            </div>
+            <div id="insp-relationships-list" class="relationships-grid">
+              <!-- Dynamically populated 11 relationship cards -->
+            </div>
+          </div>
+
+          <!-- 4. Memories Tab -->
+          <div id="tab-memories" class="tab-pane">
+            <div class="memories-header-row">
+              <p>Actual simulation events remembered by this villager:</p>
+              <span class="memory-count-badge" id="insp-memory-badge">0 Memories</span>
+            </div>
+            <div id="insp-memories-timeline" class="memories-timeline">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- 5. Diary Tab -->
+          <div id="tab-diary" class="tab-pane">
+            <div class="diary-book-wrapper">
+              <div class="diary-book-cover">
+                <div class="diary-book-header">
+                  <span class="diary-icon">📖</span>
+                  <h3 id="diary-book-title">Mira's Journal</h3>
+                </div>
+                <div id="insp-diary-entries" class="diary-entries-container">
+                  <!-- Populated with rich dynamic journal entries -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. Inventory Tab -->
+          <div id="tab-inventory" class="tab-pane">
+            <div class="wealth-bar">
+              <div class="coin-display">
+                <span class="coin-icon">🪙</span>
+                <span id="insp-money-val" class="coin-amount">45 Gold</span>
+              </div>
+              <div class="trade-stats">
+                <span>Trades Completed: <strong id="insp-trade-count">0</strong></span>
+              </div>
+            </div>
+
+            <h4>Carried Goods & Resources</h4>
+            <div id="insp-inventory-grid" class="inventory-grid">
+              <!-- Dynamically populated items -->
+            </div>
+
+            <h4 class="mt-4">Recent Trade Log</h4>
+            <div id="insp-trade-log" class="trade-log-list">
+              <p class="empty-state">No trades conducted yet.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inspector Footer -->
+        <div class="inspector-footer">
+          <button id="btn-track-villager" class="action-btn secondary">
+            <span>🎥</span> Follow with Camera
+          </button>
+          <button id="btn-close-inspector-footer" class="action-btn">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Help & Keyboard Shortcuts Modal -->
+    <div id="help-modal" class="modal-backdrop hidden">
+      <div class="help-card">
+        <h3>How to Explore "A Tiny Living Village"</h3>
+        <ul>
+          <li><strong>Click any Villager:</strong> Opens their full identity, needs, relationships, memories, and personal dynamic diary!</li>
+          <li><strong>Click & Drag Canvas / WASD:</strong> Pan the camera around the village.</li>
+          <li><strong>Scroll Wheel / +/- Buttons:</strong> Zoom in and out.</li>
+          <li><strong>Bottom Villager Bar:</strong> Quick jump and inspect any of the 12 villagers.</li>
+          <li><strong>Speed Controls:</strong> 1x, 2x, 4x, 8x to fast-forward days and observe stories unfold.</li>
+          <li><strong>Rumors & Gossip:</strong> Watch real events turn into village gossip, distort, and shift relationships!</li>
+        </ul>
+        <button id="btn-close-help" class="action-btn">Got It!</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
